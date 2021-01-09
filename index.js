@@ -3,6 +3,7 @@ const app = express();
 const bodyParses = require ("body-parser");
 const connection = require("./database/database");
 const Pergunta = require ("./database/Pergunta");
+const Resposta = require ("./database/Resposta");
 const { render } = require("ejs");
 
 //Database
@@ -23,7 +24,9 @@ app.use(bodyParses.json());
 
 //Rota -> renderiza para index
 app.get("/", (req, res) => {
-    Pergunta.findAll({ raw: true }).then(perguntas => {
+    Pergunta.findAll({ raw: true, order:[
+        ['id', 'DESC'] // ASC = Crescente || DESC = Decrescente
+    ] }).then(perguntas => {
         res.render("index", {
             perguntas: perguntas
         });
@@ -44,6 +47,38 @@ app.post("/salvarpergunta", (req, res) => {
     }).then(() => {
         res.redirect("/");
     })
+});
+
+app.get("/pergunta/:id", (req, res) => {
+    var id = req.params.id;
+    Pergunta.findOne({ // Função do sequelize que busca o ID no banco de dados atráves de uma condição.
+        where: {id: id}
+    }).then(pergunta => {
+        if (pergunta != undefined) { // Pergunta encontrada.
+            Resposta.findAll({
+                where: {perguntaId: pergunta.id},
+                order: [['id', 'DESC']]
+            }).then(respostas => {
+                res.render("pergunta", {
+                    pergunta: pergunta,
+                    respostas: respostas
+            });
+            });
+        } else { // Pergunta não encontrada.
+            res.redirect("/");
+        }
+    });
+})
+
+app.post("/responder", (req, res) => {
+    var corpo = req.body.corpo;
+    var perguntaId = req.body.pergunta;
+    Resposta.create({
+        corpo: corpo,
+        perguntaId: perguntaId
+    }).then(() => {
+        res.redirect("/pergunta/"+perguntaId)
+    });
 });
 
 // Criar o servidor
